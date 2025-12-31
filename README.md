@@ -2,7 +2,7 @@
 
 # 주제
 - Screening Eligibility and Survival among Patients with Lung Cancer: A Korean Nationwide Cohort Study
-- 
+ 
 # 배경
 - 흡연 유형에 따른 전체/폐암 사망 위험도를 분석하고 전체/폐암에 영향을 끼치는 개인 특성 요인이 무엇인지 분석하는 것을 목적으로 한다.
  
@@ -14,9 +14,11 @@
 
 # 데이터
 - 폐암 환자 : 147303명 (건강검진데이터와 연계 가능한 인원)
-- 표본1 : 30550명 (Never-smokers: 18093명/ Smoking quitters before diagnosis: 7742명/ Smoking quitters after diagnosis: 3414명/ Continuous smokers after diagnosis: 1301명)
-- 표본2: 4715명 (Smoking quitters after diagnosis: 3414명/ Continuous smokers after diagnosis: 1301명)
-- 표본3: 12457명 (Smoking quitters before diagnosis: 7742명/ Smoking quitters after diagnosis: 3414명/ Continuous smokers after diagnosis: 1301명)
+- 표본1 : 77554명 (Aged 50-80, >=20PY smoking history: 31804명/ Aged 50-80, <20PY smoking history: 12735명/ Aged 50-80, never-smoked: 33015명)
+- 표본2: 44539명 (Smk_duration >=20: 39383명/ Smk_duration <20: 5156명)
+- 표본3: 32514명 (Aged 50-80, >=20PY smoking history: 31804명/ Aged 40-49, >=20PY smoking history: 710명)
+- 표본4: 13682명 (Aged 50-80, <20PY smoking history: 12735명/ Aged 40-49, <20PY smoking history: 947명)
+- 표본5: 34984명 (Aged 50-80, Never-smoker: 33015명/ Aged 40-49, Never-smoker: 1969명)
 
 
 # 사용 통계 모델
