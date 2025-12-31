@@ -23,8 +23,10 @@
 
 
 # 사용 통계 모델
-- logistic regression
+- Anova(분산 분석)
+- Pearson's Chi-squared Test(카이제곱 검정)
 - cox proportional hazard regression
+- Proportional Subdistribution Hazards Regression(Fine-gray model)
 
 
 # 분석1
@@ -37,8 +39,14 @@
 
 
 # 분석2
-- 사용모델: logistic regression 
-- 표본: 4715명(Smoking quitters after diagnosis: 3414명/ Continuous smokers after diagnosis: 1301명)
+- 분석방법: Anova, Pearson's chisq test
+- 표본:
+ - 표본1 : 77554명 (Aged 50-80, >=20PY smoking history: 31804명/ Aged 50-80, <20PY smoking history: 12735명/ Aged 50-80, never-smoked: 33015명)
+ - 표본2: 44539명 (Smk_duration >=20: 39383명/ Smk_duration <20: 5156명)
+ - 표본3: 32514명 (Aged 50-80, >=20PY smoking history: 31804명/ Aged 40-49, >=20PY smoking history: 710명)
+ - 표본4: 13682명 (Aged 50-80, <20PY smoking history: 12735명/ Aged 40-49, <20PY smoking history: 947명)
+ - 표본5: 34984명 (Aged 50-80, Never-smoker: 33015명/ Aged 40-49, Never-smoker: 1969명)
+ - 표본6: 147299명 (Included in analysis: 89860명/ Excluded from the analysis: 57439명)
 - 종속변수: ntp_yn(전자담배 흡연여부)
 - 독립변수: AGE,SEX,BMI,INCOME,CCI_SCORE(상병점수),STAGE(수술부위),수술여부,방사선치료여부,전신항암요법치료여부,흡연유형
 - 목적: 진단 후 금연자와 현재 흡연중인 자를 대상으로 univariable, multivariable(univariable에서 p<0.2인 변수) 로지스틱 회귀분석을 활용하여 전자담배 흡연에 영향을 미치는 특성 요인 분석
