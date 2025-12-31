@@ -19,6 +19,7 @@
 - 표본3: 32514명 (Aged 50-80, >=20PY smoking history: 31804명/ Aged 40-49, >=20PY smoking history: 710명)
 - 표본4: 13682명 (Aged 50-80, <20PY smoking history: 12735명/ Aged 40-49, <20PY smoking history: 947명)
 - 표본5: 34984명 (Aged 50-80, Never-smoker: 33015명/ Aged 40-49, Never-smoker: 1969명)
+- 표본6: 147299명 (Included in analysis: 89860명/ Excluded from the analysis: 57439명)
 
 
 # 사용 통계 모델
