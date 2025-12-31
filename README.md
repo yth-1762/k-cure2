@@ -83,7 +83,7 @@
 - 분석결과: Tables_Dummy_20251125파일에서 table12에서 확인 가능
 
 
-# 분석6
+# 분석7
 - 사용모델: cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)
 - 표본: 34984명 (Aged 50-80, Never-smoker: 33015명/ Aged 40-49, Never-smoker: 1969명)
 - 사망원인: All cause mortality(전체), Lung cancer mortality(폐암)
