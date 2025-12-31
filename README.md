@@ -36,6 +36,7 @@
 - 목적: grouptype간에 연령(AGE), 누적 흡연량(pack_year), 체질량지수(BMI)가 통계적으로 유의미하게 다른지 일원 분산분석(One-way ANOVA)을 통해 확인하고 비교함.
 - 분석결과: Tables_Dummy_20251125파일에서 table1,table3-1,table3-3,table4-1,table5-1,table6-1,table7-1에서 확인 가능
 
+
 # 분석2
 - 분석방법: Pearson's Chi-squared Test(카이제곱 검정)
 - 표본: 표본1(77554명)/ 표본2(44539명)/ 표본3(32514명)/ 표본4(13682명)/ 표본5(34984명) /표본6(147299명)
@@ -51,38 +52,41 @@
 - 표본: 77554명 (Aged 50-80, >=20PY smoking history: 31804명/ Aged 50-80, <20PY smoking history: 12735명/ Aged 50-80, never-smoked: 33015명)
 - 사망원인: All cause mortality(전체), Lung cancer mortality(폐암)
 - 독립변수: grouptype(Aged 50-80, >=20PY smoking history/ Aged 50-80, <20PY smoking history/ Aged 50-80, never-smoked), AGE,SEX,Smoking status, BMI,INCOME,CCI_SCORE(상병점수),physical activity, 비소세포암 여부, STAGE(수술부위),수술여부, 방사선치료여부, 전신항암요법치료여부
-- 목적: 표본1(77554명)을 대상으로 (univariable/multivariable)cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(grouptype, 개인특성) 분석
+- 목적: 표본1(77554명)을 대상으로 (univariable/multivariable(독립변수 중 Smoking status, pack_year 제외[이중보정 문제 해결])cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(grouptype, 개인특성) 분석
 - 분석결과: Tables_Dummy_20251125파일에서 table9에서 확인 가능 
 
+
 # 분석4
-- 사용모델: cox proportional hazard regression
-- 표본: 30550명(Never-smokers: 18093명/ Smoking quitters before diagnosis: 7742명/ Smoking quitters after diagnosis: 3414명/ Continuous smokers after diagnosis: 1301명)
-- 사망원인: All cause mortality(전체), Lung cancer mortality(폐암), Non Lung cancer mortality(비폐암)
-- 독립변수: 흡연유형2(Never-smokers without NTP use/Never-smokers with NTP use after diagnosis/Smoking quitters before diagnosis without NTP use after diagnosis/Smoking quitters before diagnosis with NTP use after diagnosis/Smoking quitters after diagnosis without NTP use/Smoking quitters after diagnosis with NTP use/Continuous smokers after diagnosis without NTP use/Countinous smokers after diagnosis with NTP use), AGE,SEX,BMI,INCOME,CCI_SCORE(상병점수),physical activity, 비소세포암 여부, STAGE(수술부위),수술여부,방사선치료여부,전신항암요법치료여부
-- 목적: 표본1(30550명)을 대상으로 (univariable/multivariable)cox proportional hazard regression을 활용하여 사망(ALL cause mortality/Lung cancer mortality/Non Lung cancer mortality)에 영향을 미치는 요인(흡연유형2, 개인특성) 분석
-- 분석결과: tables_20250901파일에서 table6에서 확인 가능
+- 사용모델: cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)
+- 표본: 44539명 (Smk_duration >=20: 39383명/ Smk_duration <20: 5156명)
+- 사망원인: All cause mortality(전체), Lung cancer mortality(폐암)
+- 독립변수: grouptype(Smk_duration >=20/ Smk_duration <20), AGE,SEX,Smoking status, BMI,INCOME,CCI_SCORE(상병점수),physical activity, 비소세포암 여부, STAGE(수술부위),수술여부, 방사선치료여부, 전신항암요법치료여부
+- 목적: 표본2(44539명)을 대상으로 (univariable/multivariable)cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(grouptype, 개인특성) 분석
+- 분석결과: Tables_Dummy_20251125파일에서 table10에서 확인 가능
+
 
 # 분석5
-- 사용모델: cox proportional hazard regression
-- 표본: 30550명(Never-smokers: 18093명/ Smoking quitters before diagnosis: 7742명/ Smoking quitters after diagnosis: 3414명/ Continuous smokers after diagnosis: 1301명)
+- 사용모델: cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)
+- 표본: 32514명 (Aged 50-80, >=20PY smoking history: 31804명/ Aged 40-49, >=20PY smoking history: 710명)
 - 사망원인: All cause mortality(전체), Lung cancer mortality(폐암)
-- 독립변수: 흡연유형1(Never-smokers/Smoking quitters before diagnosis/Smoking quitters after diagnosis/Continuous smokers after diagnosis), AGE,SEX, 비소세포암 여부, STAGE(수술부위)
-- 목적: 표본1(30550명)을 대상으로 (univariable/multivariable)cox proportional hazard regression을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(흡연유형1, 개인특성) 분석
-- 분석결과: tables_20250901파일에서 table8에서 확인 가능
+- 독립변수: grouptype(Aged 50-80, >=20PY smoking history/ Aged 40-49, >=20PY smoking history), AGE,SEX,Smoking status, BMI,INCOME,CCI_SCORE(상병점수),physical activity, 비소세포암 여부, STAGE(수술부위),수술여부, 방사선치료여부, 전신항암요법치료여부
+- 목적: 표본3(32514명)을 대상으로 (univariable/multivariable(독립변수 중 AGE 제외[이중보정 문제 해결])cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(grouptype, 개인특성) 분석
+- 분석결과: Tables_Dummy_20251125파일에서 table11에서 확인 가능
+
 
 # 분석6
-- 사용모델: cox proportional hazard regression
-- 표본: 30550명(Never-smokers: 18093명/ Smoking quitters before diagnosis: 7742명/ Smoking quitters after diagnosis: 3414명/ Continuous smokers after diagnosis: 1301명)
+- 사용모델: cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)
+- 표본: 13682명 (Aged 50-80, <20PY smoking history: 12735명/ Aged 40-49, <20PY smoking history: 947명)
 - 사망원인: All cause mortality(전체), Lung cancer mortality(폐암)
-- 독립변수: 흡연유형2(Never-smokers without NTP use/Never-smokers with NTP use after diagnosis/Smoking quitters before diagnosis without NTP use after diagnosis/Smoking quitters before diagnosis with NTP use after diagnosis/Smoking quitters after diagnosis without NTP use/Smoking quitters after diagnosis with NTP use/Continuous smokers after diagnosis without NTP use/Countinous smokers after diagnosis with NTP use), AGE,SEX,비소세포암 여부, STAGE(수술부위)
-- 목적: 표본1(30550명)을 대상으로 (univariable/multivariable)cox proportional hazard regression, 을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(흡연유형2, 개인특성) 분석
-- 분석결과: tables_20250901파일에서 table9에서 확인 가능
+- 독립변수: grouptype(Aged 50-80, <20PY smoking history/ Aged 40-49, <20PY smoking history), AGE,SEX,Smoking status, BMI,INCOME,CCI_SCORE(상병점수),physical activity, 비소세포암 여부, STAGE(수술부위),수술여부, 방사선치료여부, 전신항암요법치료여부
+- 목적: 표본4(13682명)을 대상으로 (univariable/multivariable(독립변수 중 AGE 제외[이중보정 문제 해결])cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(grouptype, 개인특성) 분석
+- 분석결과: Tables_Dummy_20251125파일에서 table12에서 확인 가능
 
 
-# 분석7
-- 사용모델: cox proportional hazard regression
-- 표본: 12457명 (Smoking quitters before diagnosis: 7742명/ Smoking quitters after diagnosis: 3414명/ Continuous smokers after diagnosis: 1301명)
+# 분석6
+- 사용모델: cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)
+- 표본: 34984명 (Aged 50-80, Never-smoker: 33015명/ Aged 40-49, Never-smoker: 1969명)
 - 사망원인: All cause mortality(전체), Lung cancer mortality(폐암)
-- 독립변수: 흡연유형3(Smoking quitters before diagnosis/Smoking quitters after diagnosis/Continuous smokers after diagnosis), AGE,SEX,비소세포암 여부, STAGE(수술부위)
-- 목적: 표본3(12457명)을 대상으로 (univariable/multivariable)cox proportional hazard regression을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(흡연유형3, 개인특성) 분석
-- 분석결과: tables_20250901파일에서 table10에서 확인 가능
+- 독립변수: grouptype(Aged 50-80, Never-smoker/ Aged 40-49, Never-smoker), AGE,SEX,Smoking status, BMI,INCOME,CCI_SCORE(상병점수),physical activity, 비소세포암 여부, STAGE(수술부위),수술여부, 방사선치료여부, 전신항암요법치료여부
+- 목적: 표본5(34984명)을 대상으로 (univariable/multivariable(독립변수 중 AGE 제외[이중보정 문제 해결])cox proportional hazard regression, Proportional Subdistribution Hazards Regression(Fine-gray model)을 활용하여 사망(ALL cause mortality/Lung cancer mortality)에 영향을 미치는 요인(grouptype, 개인특성) 분석
+- 분석결과: Tables_Dummy_20251125파일에서 table13에서 확인 가능
