@@ -33,11 +33,17 @@
 - 표본: 표본1(77554명)/ 표본2(44539명)/ 표본3(32514명)/ 표본4(13682명)/ 표본5(34984명)
 - 종속변수: grouptype
 - 독립변수: AGE, pack_year, BMI
-- 목적: grouptype벼로 AGE, pack_year, BMI가 차이가 있는지 검정
+- 목적: grouptype간에 연령(AGE), 누적 흡연량(pack_year), 체질량지수(BMI)가 통계적으로 유의미하게 다른지 일원 분산분석(One-way ANOVA)을 통해 확인하고 비교함.
 - 분석결과: Tables_Dummy_20251125파일에서 table1,table3-1,table3-3,table4-1,table5-1,table6-1,table7-1에서 확인 가능
 
-
-Pearson's chisq test(변수1: grouptype / 변수2: SEX, Smoking status, INCOME, CCI_SCORE(상병점수), Physical activity, Histological type of lung cancer, Stage(수술부위),수술여부, 방사선치료여부, 전신항암요법치료여부 
+# 분석2
+- 분석방법: Pearson's Chi-squared Test(카이제곱 검정)
+- 표본: 표본1(77554명)/ 표본2(44539명)/ 표본3(32514명)/ 표본4(13682명)/ 표본5(34984명) /표본6(147299명)
+- 그룹변수: grouptype
+- 분석항목: SEX, Smoking status, INCOME, CCI_SCORE(상병점수), Physical activity, Histological type of lung cancer, 비소세포암 여부, Stage(수술부위),수술여부, 방사선치료여부, 전신항암요법치료여부) 
+- 목적: 각 grouptype별로 성별, 흡연 여부, 치료 방법 등 주요 범주형 변수들의 구성 비율이 유의미하게 다른지 카이제곱 검정을 통해 분석함.
+- 분석결과: Tables_Dummy_20251125파일에서 table1, table2, table3-1, table3-2, table3-3, table3-4, table4-1, table4-2, table5-1, table5-2, table6-1, table6-2, table7-1, table7-2, table8에서 확인 가능
+ 
 
 
 # 분석3
