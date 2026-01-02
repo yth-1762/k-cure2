@@ -1,0 +1,2240 @@
+#gray test, competing risk regression#
+
+data1$grouptype <- relevel(data1$grouptype,ref="001")
+data1$AGE <- as.numeric(data1$AGE)
+data1$SEX <- relevel(data1$SEX,ref="2")
+data1$q_smk_yn2 <- relevel(data1$q_smk_yn2,ref="Never-smoker")
+data1$pack_year <- as.numeric(data1$pack_year)
+data1$G1E_BMI <- as.numeric(data1$G1E_BMI)
+data1$income <- relevel(data1$income,ref="1")
+data1$cci_group <- relevel(data1$cci_group,ref="0")
+data1$activity <- relevel(data1$activity, ref="inactive")
+data1$non_small_yn <- relevel(data1$non_small_yn,ref="0")
+data1$SEER_GRP <- relevel(data1$SEER_GRP,ref="1")
+data1$surgery_yn <- relevel(data1$surgery_yn,ref="no")
+data1$radio_yn <- relevel(data1$radio_yn, ref="no")
+data1$system_yn <- relevel(data1$system_yn, ref="no")
+
+
+#data1#
+data1[data1$death_yn==0,"dth_type"] = 0
+data1[data1$lung_cancer_yn==1,"dth_type"] = 1
+data1[data1$sain1new ==2 & !is.na(data1$sain1new),"dth_type"] = 2
+data1[data1$sain1new ==3 & !is.na(data1$sain1new),"dth_type"] = 3
+data1[data1$sain1new ==5 & !is.na(data1$sain1new),"dth_type"] = 4
+data1[data1$sain1new ==6 & !is.na(data1$sain1new),"dth_type"] = 5
+data1[data1$sain1new ==7 & !is.na(data1$sain1new),"dth_type"] = 6
+data1[data1$sain1new ==9 & !is.na(data1$sain1new),"dth_type"] = 7
+data1[data1$sain1new =="Other" & !is.na(data1$sain1new),"dth_type"] = 8
+table(data1$dth_type)
+data1[is.na(data1$dth_type ==TRUE),"dth_type"] = 2
+sum(is.na(data1$dth_type))
+gc()
+
+data1$non_small_yn <- relevel(data1$non_small_yn, ref="1")
+library(cmprsk)
+data1$dth_type <- NULL
+m1<-model.matrix(~grouptype+AGE+SEX+G1E_BMI+income
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data1)[,-1]
+crr1_1_1 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr1_1_1)
+exp(crr1_1_1$coef)
+beta<- crr1_1_1$coef
+se <- sqrt(diag(crr1_1_1$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr1_1_1)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+newdata <- m1[1:3,]
+newdata[,"grouptype002"] <- c(0,1,0)
+newdata[,"grouptype003"] <- c(0,0,1)
+newdata[,"AGE"]<- c(mean(data1$AGE),mean(data1$AGE),mean(data1$AGE))
+newdata[,"SEX1"] <- c(0,0,0)
+newdata[,"G1E_BMI"] <- c(mean(data1$G1E_BMI),mean(data1$G1E_BMI),mean(data1$G1E_BMI))
+newdata[,"income2"] <- c(0,0,0)
+newdata[,"income3"] <- c(0,0,0)
+newdata[,"income4"] <- c(0,0,0)
+newdata[,"income5"] <- c(0,0,0)
+newdata[,"cci_group>=5"] <- c(0,0,0)
+newdata[,"cci_group3-4"] <- c(0,0,0)
+newdata[,"cci_group1-2"] <- c(0,0,0)
+newdata[,"activityactive"] <- c(0,0,0)
+newdata[,"non_small_yn1"] <- c(0,0,0)
+newdata[,"SEER_GRP2"] <- c(0,0,0)
+newdata[,"SEER_GRP7"] <- c(0,0,0)
+newdata[,"SEER_GRP9"] <- c(0,0,0)
+newdata[,"surgery_ynyes"] <- c(0,0,0)
+newdata[,"radio_ynyes"] <- c(0,0,0)
+newdata[,"system_ynyes"] <- c(0,0,0)
+
+newdata
+
+pred1_1_1<-predict(crr1_1_1,cov1=newdata)
+View(pred1_1_1)
+pred1 <- data.frame(time=pred1_1_1[,1], group1 = pred1_1_1[,2],group2 = pred1_1_1[,3],group3=pred1_1_1[,4])
+
+pred1_1_1
+View(pred1_1_1)
+
+surv_all <- Surv(data1$day_diff,data1$death_yn==1)
+data1$lung_cancer_yn <- ifelse(is.na(data1$sain1new),0,ifelse(data1$sain1new==1,1,0))
+table(data1$lung_cancer_yn)
+surv_lungcancer <- Surv(data1$day_diff,data1$lung_cancer_yn ==1)
+
+png(filename = "finegray(cif)1.png",width=3200,height= 2400,res=100)
+
+p3<-ggplot(pred1, aes(x=time)) +
+  geom_line(aes(y= group1, color="Aged 50-80, ≥20PY smoking history")) +
+  geom_line(aes(y= group2, color="Aged 50-80, <20PY smoking history")) +
+  geom_line(aes(y= group3, color="Aged 50-80, never smoked"))+
+  scale_color_manual(values = c("Aged 50-80, ≥20PY smoking history" = "darkblue", "Aged 50-80, <20PY smoking history" = "darkred", "Aged 50-80, never smoked" = "darkgreen"),breaks = c("Aged 50-80, ≥20PY smoking history", "Aged 50-80, <20PY smoking history", "Aged 50-80, never smoked"))+
+  scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  labs(x = "Time since diagnosis (years)", y = "Cumulative event (probability)", color= "")+
+  theme_classic() +
+  theme(legend.position = "top",axis.title.x=element_text(size=20),,axis.title.y=element_text(size=20,hjust=0.5),,legend.text=element_text(size=15),axis.text.x=element_text(size=20,color="black"),axis.text.y=element_text(size=20,color="black"),plot.margin=margin(5,70,5,290)
+          )
+
+
+surv_fit2 <- survfit(surv_lungcancer ~grouptype, data=data1)
+
+p<- ggsurvplot(surv_fit2,legend.title="",palette = c("darkblue","darkred","darkgreen"),break.time.by=365,censor= FALSE, risk.table=TRUE, risk.table.y.text.col= FALSE, conf.int=TRUE,xlab= "Time since diagnosis (Years)",legend.labs=c("Aged 50-80, ≥20PY smoking history","Aged 50-80, <20PY smoking history",
+                                                                                                                                                                                                                                        "Aged 50-80, never smoked"))
+p1 <- p$plot + scale_x_continuous(labels= c(0,1,2,3,4,5,6,7,8),breaks=c(0,365,730,1095,1460,1825,2190,2555,2920)) + theme(axis.title.x=element_text(size=20),plot.margin=margin(5,70,5,290),axis.title.y=element_text(size=20,hjust=0.5),legend.text=element_text(size=15),axis.text.x=element_text(size=20),axis.text.y=element_text(size=20))
+p2<- p$table + theme(axis.text.y=element_text(size=15),plot.margin=margin(5,70,5,290),plot.title=element_text(size=20),axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.title.x=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line.x=element_blank(),axis.line.y=element_blank(),axis.ticks.y=element_blank())
+
+
+risk_df <- p2$data[,c(1,2,3)]
+risk_df$strata <- factor(risk_df$strata,levels=c("Aged 50-80, never smoked","Aged 50-80, <20PY smoking history","Aged 50-80, ≥20PY smoking history"))
+p4<-ggplot(risk_df, aes(x=time, y = strata, label=n.risk))+
+  geom_text(size=5) + scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  theme_classic() +theme(legend.text=element_text(size=15),axis.text.y=element_text(size=20,color="black"),plot.title = element_text(size=20),axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),axis.text.x=element_blank(),axis.line= element_blank())+
+  labs(title ="Number at Risk",x=NULL, y=NULL)
+
+g1 <- ggplotGrob(p3)
+g2 <- ggplotGrob(p4)
+
+g2$widths <- g1$widths
+
+g <- arrangeGrob(g1,g2,ncol=1, heights=c(3,1))
+g<- arrangeGrob(g1)
+grid.newpage()
+grid.draw(g)
+
+dev.off()
+
+     
+ggsave(filename="finegray(cif)1-1(risk).png.png",width=18,height=10,plot=g,dpi=300)
+
+
+
+#riskRegression 패키지 FGR()함수로 fitting 해보기#
+
+library(riskRegression)
+library(prodlim)
+
+fgr1_1_1 <-FGR(Hist(day_diff,dth_type)~grouptype+AGE+SEX+G1E_BMI+income
+               +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data1,cause=1,times=seq(1,3200,by=1))
+
+summary(crr1_1_1)
+exp(crr1_1_1$coef)
+
+s1<-summary(fgr1_1_1)
+s1$coef
+
+
+newdata2 <- data1[1:3,c("grouptype","AGE","SEX","G1E_BMI","income","cci_group","activity","non_small_yn","SEER_GRP","surgery_yn","radio_yn","system_yn")]
+newdata2[1:3,"grouptype"] <- c("001","002","003")
+newdata2[1:3,"AGE"]<- c(mean(data1$AGE),mean(data1$AGE),mean(data1$AGE))
+newdata2[1:3,"SEX"] <- c("2","2","2")
+newdata2[1:3,"G1E_BMI"] <- c(mean(data1$G1E_BMI),mean(data1$G1E_BMI),mean(data1$G1E_BMI))
+newdata2[1:3,"income"] <- c("1","1","1")
+newdata2[1:3,"cci_group"] <- c("0","0","0")
+newdata2[1:3,"activity"] <- c("inactive","inactive","inactive")
+newdata2[1:3,"non_small_yn"] <- c("0","0","0")
+newdata2[1:3,"SEER_GRP"] <- c("1","1","1")
+newdata2[1:3,"surgery_yn"] <- c("no","no","no")
+newdata2[1:3,"radio_yn"] <- c("no","no","no")
+newdata2[1:3,"system_yn"] <- c("no","no","no")
+newdata2$grouptype<- factor(newdat2$grouptype))
+
+
+newdata2 <- data.frame(grouptype= c("001","002","003"),AGE=c(mean(data1$AGE),mean(data1$AGE),mean(data1$AGE)),SEX=c("2","2","2"),
+                      G1E_BMI = c(mean(data1$G1E_BMI),mean(data1$G1E_BMI),mean(data1$G1E_BMI)),income=c("1","1","1"),cci_group=c("0","0","0"),activity = c("inactive","inactive","inactive"),non_small_yn=c("0","0","0"), SEER_GRP=c("1","1","1"),surgery_yn=c("no","no","no"),radio_yn=c("no","no","no"),system_yn=c("no","no","no"))
+
+newdata2 <- data1[1:3,]
+
+newdata2
+
+fgr1_1_1
+
+predfgr<- predict(fgr1_1_1,newdata=newdata2,times=seq(1,3200,by=1))
+predfgr<- t(predfgr)
+plot(predfgr)
+View(predfgr)
+
+sum(pred1_1_1[,2]==predfgr[,1])
+
+m1<-model.matrix(~grouptype,data=data1)[,-1]
+crr11 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11)
+exp(crr11$coef)
+beta<- crr11$coef
+se <- sqrt(diag(crr11$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+data1$grouptype <- relevel(data1$grouptype,ref="003")
+m1<-model.matrix(~grouptype,data=data1)[,-1]
+crr11_3 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_3)
+exp(crr11_3$coef)
+beta<- crr11_3$coef
+se <- sqrt(diag(crr11_3$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_3)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+
+
+
+
+m1<-model.matrix(~AGE,data=data1)[,-1]
+crr12 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr12)
+exp(crr12$coef)
+beta<- crr12$coef
+se <- sqrt(diag(crr12$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr12)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~SEX,data=data1)[,-1]
+crr12 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr12)
+exp(crr12$coef)
+beta<- crr12$coef
+se <- sqrt(diag(crr12$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr12)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~q_smk_yn2,data=data1)[,-1]
+crr13 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr13)
+exp(crr13$coef)
+beta<- crr13$coef
+se <- sqrt(diag(crr13$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr13)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~pack_year,data=data1)[,-1]
+crr14 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr14)
+exp(crr14$coef)
+beta<- crr14$coef
+se <- sqrt(diag(crr14$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr14)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~G1E_BMI,data=data1)[,-1]
+crr15 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr15)
+exp(crr15$coef)
+beta<- crr15$coef
+se <- sqrt(diag(crr15$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr15)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~income,data=data1)[,-1]
+crr1_23 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr1_23)
+exp(crr1_23$coef)
+beta<- crr1_23$coef
+se <- sqrt(diag(crr1_23$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr1_23)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~cci_group,data=data1)[,-1]
+crr16 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr16)
+exp(crr16$coef)
+beta<- crr16$coef
+se <- sqrt(diag(crr16$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr16)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~activity,data=data1)[,-1]
+crr17 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr17)
+exp(crr17$coef)
+beta<- crr17$coef
+se <- sqrt(diag(crr17$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr17)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~non_small_yn,data=data1)[,-1]
+crr18 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr18)
+exp(crr18$coef)
+beta<- crr18$coef
+se <- sqrt(diag(crr18$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr18)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~non_small_yn,data=data1)[,-1]
+crr1_18_1 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr1_18_1)
+exp(crr1_18_1$coef)
+beta<- crr1_18_1$coef
+se <- sqrt(diag(crr1_18_1$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr1_18_1)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~SEER_GRP,data=data1)[,-1]
+crr18 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr18)
+exp(crr18$coef)
+beta<- crr18$coef
+se <- sqrt(diag(crr18$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr18)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~surgery_yn,data=data1)[,-1]
+crr1_20 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr1_20)
+exp(crr1_20$coef)
+beta<- crr1_20$coef
+se <- sqrt(diag(crr1_20$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr1_20)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~radio_yn,data=data1)[,-1]
+crr1_21 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr1_21)
+exp(crr1_21$coef)
+beta<- crr1_21$coef
+se <- sqrt(diag(crr1_21$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr1_21)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~system_yn,data=data1)[,-1]
+crr1_22 <- crr(ftime=data1$day_diff,fstatus=data1$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr1_22)
+exp(crr1_22$coef)
+beta<- crr1_22$coef
+se <- sqrt(diag(crr1_22$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr1_22)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data11$grouptype<- factor(data11$grouptype)
+
+
+#data11을 활용한 gray fine model#
+
+#lung cancer mortality multivariable cox proportional hazard model#
+data11$smk_20 <- relevel(data11$smk_20,ref=">=20")
+data11$AGE <- as.numeric(data11$AGE)
+data11$SEX <- relevel(data11$SEX,ref="2")
+data11$q_smk_yn2 <- relevel(data11$q_smk_yn2,ref="Ex-smoker")
+data11$pack_year <- as.numeric(data11$pack_year)
+data11$G1E_BMI <- as.numeric(data11$G1E_BMI)
+data11$income <- relevel(data11$income,ref="1")
+data11$cci_group <- relevel(data11$cci_group,ref="0")
+data11$activity <- relevel(data11$activity, ref="inactive")
+data11$non_small_yn <- relevel(data11$non_small_yn,ref="0")
+data11$SEER_GRP <- relevel(data11$SEER_GRP,ref="1")
+data11$surgery_yn <- relevel(data11$surgery_yn,ref="no")
+data11$radio_yn <- relevel(data11$radio_yn, ref="no")
+data11$system_yn <- relevel(data11$system_yn, ref="no")
+
+#data111#
+data11[data11$death_yn==0,"dth_type"] = 0
+data11[data11$lung_cancer_yn==1,"dth_type"] = 1
+data11[data11$sain1new ==2 & !is.na(data11$sain1new),"dth_type"] = 2
+data11[data11$sain1new ==3 & !is.na(data11$sain1new),"dth_type"] = 3
+data11[data11$sain1new ==5 & !is.na(data11$sain1new),"dth_type"] = 4
+data11[data11$sain1new ==6 & !is.na(data11$sain1new),"dth_type"] = 5
+data11[data11$sain1new ==7 & !is.na(data11$sain1new),"dth_type"] = 6
+data11[data11$sain1new ==9 & !is.na(data11$sain1new),"dth_type"] = 7
+data11[data11$sain1new =="Other" & !is.na(data11$sain1new),"dth_type"] = 8
+table(data11$dth_type)
+data11[is.na(data11$dth_type ==TRUE),"dth_type"] = 2
+sum(is.na(data11$dth_type))
+
+
+View(m1)
+library(cmprsk)
+data11$smk_20 <- factor(data11$smk_20)
+
+table(data11$smk_20)
+
+data11$smk_20 <- relevel(data11$smk_20, ref=">=20")
+
+data11$dth_type <- NULL
+m1<-model.matrix(~smk_20+AGE+SEX+q_smk_yn2+pack_year+G1E_BMI+income
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data11)[,-1] 
+crr11_1 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_1)
+exp(crr11_1$coef)
+beta<- crr11_1$coef
+se <- sqrt(diag(crr11_1$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_1)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+newdata <- m1[1:2,]
+newdata[,"smk_20<20"] <- c(0,1)
+newdata[,"AGE"]<- c(mean(data11$AGE),mean(data11$AGE))
+newdata[,"SEX1"] <- c(0,0)
+newdata[,"q_smk_yn2Current smoker"] <- c(0,0)
+newdata[,"pack_year"]<- c(mean(data11$pack_year),mean(data11$pack_year))
+newdata[,"G1E_BMI"] <- c(mean(data11$G1E_BMI),mean(data11$G1E_BMI))
+newdata[,"income2"] <- c(0,0)
+newdata[,"income3"] <- c(0,0)
+newdata[,"income4"] <- c(0,0)
+newdata[,"income5"] <- c(0,0)
+newdata[,"cci_group>=5"] <- c(0,0)
+newdata[,"cci_group3-4"] <- c(0,0)
+newdata[,"cci_group1-2"] <- c(0,0)
+newdata[,"activityactive"] <- c(0,0)
+newdata[,"non_small_yn1"] <- c(0,0)
+newdata[,"SEER_GRP2"] <- c(0,0)
+newdata[,"SEER_GRP7"] <- c(0,0)
+newdata[,"SEER_GRP9"] <- c(0,0)
+newdata[,"surgery_ynyes"] <- c(0,0)
+newdata[,"radio_ynyes"] <- c(0,0)
+newdata[,"system_ynyes"] <- c(0,0)
+
+newdata
+
+pred11_1_1<-predict(crr11_1,cov1=newdata)
+View(pred11_1_1)
+pred11 <- data.frame(time=pred11_1_1[,1], group1 = pred11_1_1[,2],group2 = pred11_1_1[,3])
+
+pred11_1_1
+View(pred11_1_1)
+surv_all <- Surv(data11$day_diff,data11$death_yn==1)
+data11$lung_cancer_yn <- ifelse(is.na(data11$sain1new),0,ifelse(data11$sain1new==1,1,0))
+table(data11$lung_cancer_yn)
+surv_lungcancer <- Surv(data11$day_diff,data11$lung_cancer_yn ==1)
+
+png(filename = "finegray(cif)2.png",width=3200,height= 2400,res=100)
+
+p3<-ggplot(pred11, aes(x=time)) +
+  geom_line(aes(y= group1, color="Aged 50-80, ≥20 years smoking history")) +
+  geom_line(aes(y= group2, color="Aged 50-80, <20 years smoking history")) +
+  scale_color_manual(values = c("Aged 50-80, ≥20 years smoking history" = "darkblue", "Aged 50-80, <20 years smoking history" = "darkred"),breaks = c("Aged 50-80, ≥20 years smoking history", "Aged 50-80, <20 years smoking history"))+
+  scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  labs(x = "Time since diagnosis (years)", y = "Cumulative event (probability)", color= "")+
+  theme_classic() +
+  theme(legend.position = "top",axis.title.x=element_text(size=20),,axis.title.y=element_text(size=20,hjust=0.5),,legend.text=element_text(size=15),axis.text.x=element_text(size=20,color="black"),axis.text.y=element_text(size=20,color="black"),plot.margin=margin(5,70,5,320)
+  )
+
+
+surv_fit4 <- survfit(surv_lungcancer ~grouptype, data=data11)
+
+p<- ggsurvplot(surv_fit4,legend.title="",palette = c("darkblue","darkred"),break.time.by=365, censor= FALSE, risk.table=TRUE, risk.table.y.text.col= FALSE, conf.int=TRUE, xlab= "Time since diagnosis (Years)",legend.labs=c("Aged 50-80, ≥20 years smoking history","Aged 50-80, <20 years smoking history"))
+p1 <- p$plot + scale_x_continuous(labels= c(0,1,2,3,4,5,6,7,8),breaks=c(0,365,730,1095,1460,1825,2190,2555,2920)) + theme(axis.title.x=element_text(size=20),plot.margin=margin(5,70,5,290),axis.title.y=element_text(size=20,hjust=0.5),legend.text=element_text(size=15),axis.text.x=element_text(size=20),axis.text.y=element_text(size=20))
+p2<- p$table + theme(axis.text.y=element_text(size=15),plot.margin=margin(5,70,5,320),plot.title=element_text(size=20),axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.title.x=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line.x=element_blank(),axis.line.y=element_blank(),axis.ticks.y=element_blank())
+
+
+risk_df <- p2$data[,c(1,2,3)]
+risk_df$strata <- factor(risk_df$strata,levels=c("Aged 50-80, <20 years smoking history","Aged 50-80, ≥20 years smoking history"))
+p4<-ggplot(risk_df, aes(x=time, y = strata, label=n.risk))+
+  geom_text(size=5) + scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  theme_classic() +theme(legend.text=element_text(size=15),axis.text.y=element_text(size=20,color="black"),plot.title = element_text(size=20),axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),axis.text.x=element_blank(),axis.line= element_blank(),plot.margin=margin(5,70,5,320))+
+  labs(title ="Number at Risk",x=NULL, y=NULL)
+
+g1 <- ggplotGrob(p3)
+g2 <- ggplotGrob(p4)
+
+g2$widths <- g1$widths
+
+g <- arrangeGrob(g1,g2,ncol=1, heights=c(3,1))
+g<- arrangeGrob(g1)
+grid.newpage()
+grid.draw(g)
+
+dev.off()
+
+
+ggsave(filename="finegray(cif)2-1(risk).png.png",width=18,height=10,plot=g,dpi=300)
+
+
+
+
+data11$smk_20 <- relevel(data11$smk_20, ref="<20")
+data11$non_small_yn <- relevel(data11$non_small_yn,ref="1")
+m1<-model.matrix(~smk_20+AGE+SEX+q_smk_yn2+pack_year+G1E_BMI+income
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data11)[,-1] 
+View(m1)
+crr11_2 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_2)
+exp(crr11_2$coef)
+beta<- crr11_2$coef
+se <- sqrt(diag(crr11_2$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_2)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+View(m1)
+data11$smk_20 <- relevel(data11$smk_20, ref="<20")
+m1<-model.matrix(~smk_20,data=data11)[,-1]
+crr11_3 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_3)
+exp(crr11_3$coef)
+beta<- crr11_3$coef
+se <- sqrt(diag(crr11_3$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_3)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+View(m1)
+
+
+
+m1<-model.matrix(~AGE,data=data11)[,-1]
+crr11_5 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_5)
+exp(crr11_5$coef)
+beta<- crr11_5$coef
+se <- sqrt(diag(crr11_5$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_5)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+
+m1<-model.matrix(~SEX,data=data11)[,-1]
+crr11_4 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_4)
+exp(crr11_4$coef)
+beta<- crr11_4$coef
+se <- sqrt(diag(crr11_4$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_4)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~q_smk_yn2,data=data11)[,-1]
+crr11_5 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_5)
+exp(crr11_5$coef)
+beta<- crr11_5$coef
+se <- sqrt(diag(crr11_5$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_5)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~pack_year,data=data11)[,-1]
+crr11_6 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_6)
+exp(crr11_6$coef)
+beta<- crr11_6$coef
+se <- sqrt(diag(crr11_6$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_6)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~G1E_BMI,data=data11)[,-1]
+crr11_7 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_7)
+exp(crr11_7$coef)
+beta<- crr11_7$coef
+se <- sqrt(diag(crr11_7$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_7)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~income,data=data11)[,-1]
+crr11_7 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_7)
+exp(crr11_7$coef)
+beta<- crr11_7$coef
+se <- sqrt(diag(crr11_7$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_7)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~cci_group,data=data11)[,-1]
+crr11_8 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_8)
+exp(crr11_8$coef)
+beta<- crr11_8$coef
+se <- sqrt(diag(crr11_8$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_8)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~activity,data=data11)[,-1]
+crr11_9 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_9)
+exp(crr11_9$coef)
+beta<- crr11_9$coef
+se <- sqrt(diag(crr11_9$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_9)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data11$non_small_yn <- relevel(data11$non_small_yn,ref="0")
+m1<-model.matrix(~non_small_yn,data=data11)[,-1]
+crr11_10 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_10)
+exp(crr11_10$coef)
+beta<- crr11_10$coef
+se <- sqrt(diag(crr11_10$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_10)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data11$non_small_yn <- relevel(data11$non_small_yn,ref="1")
+m1<-model.matrix(~non_small_yn,data=data11)[,-1]
+crr11_11 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_11)
+exp(crr11_11$coef)
+beta<- crr11_11$coef
+se <- sqrt(diag(crr11_11$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_11)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~SEER_GRP,data=data11)[,-1]
+crr11_12 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_12)
+exp(crr11_12$coef)
+beta<- crr11_12$coef
+se <- sqrt(diag(crr11_12$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_12)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~surgery_yn,data=data11)[,-1]
+crr11_13 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_13)
+exp(crr11_13$coef)
+beta<- crr11_13$coef
+se <- sqrt(diag(crr11_13$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_13)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~radio_yn,data=data11)[,-1]
+crr11_14 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_14)
+exp(crr11_14$coef)
+beta<- crr11_14$coef
+se <- sqrt(diag(crr11_14$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_14)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~system_yn,data=data11)[,-1]
+crr11_15 <- crr(ftime=data11$day_diff,fstatus=data11$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr11_15)
+exp(crr11_15$coef)
+beta<- crr11_15$coef
+se <- sqrt(diag(crr11_15$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr11_15)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+#lung cancer mortality multivariable cox proportional hazard model#
+data11$grouptype <- relevel(data11$smk_20,ref="<20")
+data11$AGE <- as.numeric(data11$AGE)
+data11$SEX <- relevel(data11$SEX,ref="2")
+data11$q_smk_yn2 <- relevel(data11$q_smk_yn2,ref="Ex-smoker")
+data11$pack_year <- as.numeric(data11$pack_year)
+data11$G1E_BMI <- as.numeric(data11$G1E_BMI)
+data11$cci_group <- relevel(data11$cci_group,ref="0")
+data11$activity <- relevel(data11$activity, ref="inactive")
+data11$non_small_yn <- relevel(data11$non_small_yn,ref="0")
+data11$SEER_GRP <- relevel(data11$SEER_GRP,ref="1")
+data11$surgery_yn <- relevel(data11$surgery_yn,ref="no")
+data11$radio_yn <- relevel(data11$radio_yn, ref="no")
+data11$system_yn <- relevel(data11$system_yn, ref="no")
+
+
+#data3을 활용한 fine-gray model#
+
+data3$grouptype <- relevel(data3$grouptype,ref="001")
+data3$AGE <- as.numeric(data3$AGE)
+data3$SEX <- relevel(data3$SEX,ref="2")
+data3$q_smk_yn2 <- relevel(data3$q_smk_yn2,ref="Ex-smoker")
+data3$pack_year <- as.numeric(data3$pack_year)
+data3$G1E_BMI <- as.numeric(data3$G1E_BMI)
+data3$income <- relevel(data3$income, ref="1")
+data3$cci_group <- relevel(data3$cci_group,ref="0")
+data3$activity <- relevel(data3$activity, ref="inactive")
+data3$non_small_yn <- relevel(data3$non_small_yn,ref="0")
+data3$SEER_GRP <- relevel(data3$SEER_GRP,ref="1")
+data3$surgery_yn <- relevel(data3$surgery_yn,ref="no")
+data3$radio_yn <- relevel(data3$radio_yn, ref="no")
+data3$system_yn <- relevel(data3$system_yn, ref="no")
+
+data3[data3$death_yn==0,"dth_type"] = 0
+data3[data3$lung_cancer_yn==1,"dth_type"] = 1
+data3[data3$sain1new ==2 & !is.na(data3$sain1new),"dth_type"] = 2
+data3[data3$sain1new ==3 & !is.na(data3$sain1new),"dth_type"] = 3
+data3[data3$sain1new ==5 & !is.na(data3$sain1new),"dth_type"] = 4
+data3[data3$sain1new ==6 & !is.na(data3$sain1new),"dth_type"] = 5
+data3[data3$sain1new ==7 & !is.na(data3$sain1new),"dth_type"] = 6
+data3[data3$sain1new ==9 & !is.na(data3$sain1new),"dth_type"] = 7
+data3[data3$sain1new =="Other" & !is.na(data3$sain1new),"dth_type"] = 8
+table(data3$dth_type)
+data3[is.na(data3$dth_type ==TRUE),"dth_type"] = 2
+sum(is.na(data3$dth_type))
+
+
+View(m1)
+library(cmprsk)
+
+
+table(data3$smk_20)
+
+surv_all <- Surv(data3$day_diff,data3$death_yn==1)
+data3$lung_cancer_yn <- ifelse(is.na(data3$sain1new),0,ifelse(data3$sain1new==1,1,0))
+table(data3$lung_cancer_yn)
+surv_lungcancer <- Surv(data3$day_diff,data3$lung_cancer_yn ==1)
+
+
+m1<-model.matrix(~grouptype+SEX+q_smk_yn2+pack_year+G1E_BMI+income
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data3)[,-1] 
+crr3_1 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_1)
+exp(crr3_1$coef)
+beta<- crr3_1$coef
+se <- sqrt(diag(crr3_1$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_1)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+newdata <- m1[1:2,]
+newdata[,"grouptype002"] <- c(0,1)
+newdata[,"SEX1"] <- c(0,0)
+newdata[,"q_smk_yn2Current smoker"] <- c(0,0)
+newdata[,"pack_year"]<- c(mean(data3$pack_year),mean(data3$pack_year))
+newdata[,"G1E_BMI"] <- c(mean(data3$G1E_BMI),mean(data3$G1E_BMI))
+newdata[,"income2"] <- c(0,0)
+newdata[,"income3"] <- c(0,0)
+newdata[,"income4"] <- c(0,0)
+newdata[,"income5"] <- c(0,0)
+newdata[,"cci_group>=5"] <- c(0,0)
+newdata[,"cci_group3-4"] <- c(0,0)
+newdata[,"cci_group1-2"] <- c(0,0)
+newdata[,"activityactive"] <- c(0,0)
+newdata[,"non_small_yn1"] <- c(0,0)
+newdata[,"SEER_GRP2"] <- c(0,0)
+newdata[,"SEER_GRP7"] <- c(0,0)
+newdata[,"SEER_GRP9"] <- c(0,0)
+newdata[,"surgery_ynyes"] <- c(0,0)
+newdata[,"radio_ynyes"] <- c(0,0)
+newdata[,"system_ynyes"] <- c(0,0)
+
+
+newdata
+
+
+pred3_1_1<-predict(crr3_1,cov1=newdata)
+View(pred3_1_1)
+pred3 <- data.frame(time=pred3_1_1[,1], group1 = pred3_1_1[,2],group2 = pred3_1_1[,3])
+
+
+png(filename = "finegray(cif)3.png",width=2200,height= 1400,res=100)
+
+
+p3<-ggplot(pred3, aes(x=time)) +
+  geom_line(aes(y= group1, color="Aged 50-80, ≥20PY smoking history")) +
+  geom_line(aes(y= group2, color="Aged 40-49, ≥20PY smoking history")) +
+  scale_color_manual(values = c("Aged 50-80, ≥20PY smoking history" = "darkblue", "Aged 40-49, ≥20PY smoking history" = "darkred"),breaks = c("Aged 50-80, ≥20PY smoking history", "Aged 40-49, ≥20PY smoking history"))+
+  scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  labs(x = "Time since diagnosis (years)", y = "Cumulative event (probability)", color= "")+
+  theme_classic() +
+  theme(legend.position = "top",axis.title.x=element_text(size=20),,axis.title.y=element_text(size=20,hjust=0.5),,legend.text=element_text(size=15),axis.text.x=element_text(size=20,color="black"),axis.text.y=element_text(size=20,color="black"),plot.margin=margin(5,70,5,320)
+  )
+
+
+
+
+surv_fit2 <- survfit(surv_lungcancer ~grouptype, data=data3)
+
+p<- ggsurvplot(surv_fit2,legend.title="",palette = c("darkblue","darkred"),break.time.by=365, censor= FALSE, risk.table=TRUE, risk.table.y.text.col= FALSE, conf.int=TRUE,xlab= "Time since diagnosis (Years)",legend.labs=c("Aged 50-80, ≥20PY smoking history","Aged 40-49, ≥20PY smoking history"))
+p1 <- p$plot + scale_x_continuous(labels= c(0,1,2,3,4,5,6,7,8),breaks=c(0,365,730,1095,1460,1825,2190,2555,2920)) + theme(axis.title.x=element_text(size=20),plot.margin=margin(5,70,5,290),axis.title.y=element_text(size=20,hjust=0.5),legend.text=element_text(size=15),axis.text.x=element_text(size=20),axis.text.y=element_text(size=20))
+p2<- p$table + theme(axis.text.y=element_text(size=15),plot.margin=margin(5,70,5,290),plot.title=element_text(size=20),axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.title.x=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line.x=element_blank(),axis.line.y=element_blank(),axis.ticks.y=element_blank())
+
+
+risk_df <- p2$data[,c(1,2,3)]
+risk_df$strata <- factor(risk_df$strata,levels=c("Aged 40-49, ≥20PY smoking history","Aged 50-80, ≥20PY smoking history"))
+p4<-ggplot(risk_df, aes(x=time, y = strata, label=n.risk))+
+  geom_text(size=5) + scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  theme_classic() +theme(legend.text=element_text(size=15),axis.text.y=element_text(size=20,color="black"),plot.title = element_text(size=20),axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),axis.text.x=element_blank(),axis.line= element_blank(),plot.margin=margin(5,70,5,320))+
+  labs(title ="Number at Risk",x=NULL, y=NULL)
+
+g1 <- ggplotGrob(p3)
+g2 <- ggplotGrob(p4)
+
+g2$widths <- g1$widths
+
+g <- arrangeGrob(g1,g2,ncol=1, heights=c(3,1))
+g <- arrangeGrob(g1)
+grid.newpage()
+grid.draw(g)
+
+dev.off()
+
+
+ggsave(filename="finegray(cif)3-1(risk).png.png",width=18,height=10,plot=g,dpi=300)
+
+
+
+
+data3$grouptype <- relevel(data3$grouptype, ref="002")
+data3$non_small_yn <- relevel(data3$non_small_yn,ref="1")
+m1<-model.matrix(~grouptype+SEX+q_smk_yn2+pack_year+G1E_BMI
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data3)[,-1] 
+View(m1)
+crr3_2 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_2)
+exp(crr3_2$coef)
+beta<- crr3_2$coef
+se <- sqrt(diag(crr3_2$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_2)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data3$grouptype <- relevel(data3$grouptype, ref="001")
+m1<-model.matrix(~grouptype,data=data3)[,-1]
+crr3_3 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_3)
+exp(crr3_3$coef)
+beta<- crr3_3$coef
+se <- sqrt(diag(crr3_3$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_3)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+View(m1)
+
+data3$grouptype <- relevel(data3$grouptype, ref="002")
+m1<-model.matrix(~grouptype,data=data3)[,-1]
+crr3_4 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_4)
+exp(crr3_4$coef)
+beta<- crr3_4$coef
+se <- sqrt(diag(crr3_4$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_4)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+View(m1)
+
+m1<-model.matrix(~AGE,data=data3)[,-1]
+crr3_5 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_5)
+exp(crr3_5$coef)
+beta<- crr3_5$coef
+se <- sqrt(diag(crr3_5$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_5)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+
+m1<-model.matrix(~SEX,data=data3)[,-1]
+crr3_4 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_4)
+exp(crr3_4$coef)
+beta<- crr3_4$coef
+se <- sqrt(diag(crr3_4$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_4)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~q_smk_yn2,data=data3)[,-1]
+crr3_7 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_7)
+exp(crr3_7$coef)
+beta<- crr3_7$coef
+se <- sqrt(diag(crr3_7$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_7)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~pack_year,data=data3)[,-1]
+crr3_8 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_8)
+exp(crr3_8$coef)
+beta<- crr3_8$coef
+se <- sqrt(diag(crr3_8$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_8)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~G1E_BMI,data=data3)[,-1]
+crr3_9 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_9)
+exp(crr3_9$coef)
+beta<- crr3_9$coef
+se <- sqrt(diag(crr3_9$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_9)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~income,data=data3)[,-1]
+crr3_9 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_9)
+exp(crr3_9$coef)
+beta<- crr3_9$coef
+se <- sqrt(diag(crr3_9$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_9)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~cci_group,data=data3)[,-1]
+crr3_10 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_10)
+exp(crr3_10$coef)
+beta<- crr3_10$coef
+se <- sqrt(diag(crr3_10$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_10)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~activity,data=data3)[,-1]
+crr3_11 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_11)
+exp(crr3_11$coef)
+beta<- crr3_11$coef
+se <- sqrt(diag(crr3_11$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_11)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data3$non_small_yn <- relevel(data3$non_small_yn,ref="0")
+m1<-model.matrix(~non_small_yn,data=data3)[,-1]
+crr3_12 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_12)
+exp(crr3_12$coef)
+beta<- crr3_12$coef
+se <- sqrt(diag(crr3_12$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_12)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data3$non_small_yn <- relevel(data3$non_small_yn,ref="1")
+m1<-model.matrix(~non_small_yn,data=data3)[,-1]
+crr3_13 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_13)
+exp(crr3_13$coef)
+beta<- crr3_13$coef
+se <- sqrt(diag(crr3_13$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_13)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~SEER_GRP,data=data3)[,-1]
+crr3_14 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_14)
+exp(crr3_14$coef)
+beta<- crr3_14$coef
+se <- sqrt(diag(crr3_14$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_14)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~surgery_yn,data=data3)[,-1]
+crr3_15 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_15)
+exp(crr3_15$coef)
+beta<- crr3_15$coef
+se <- sqrt(diag(crr3_15$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_15)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~radio_yn,data=data3)[,-1]
+crr3_16 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_16)
+exp(crr3_16$coef)
+beta<- crr3_16$coef
+se <- sqrt(diag(crr3_16$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_16)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~system_yn,data=data3)[,-1]
+crr3_17 <- crr(ftime=data3$day_diff,fstatus=data3$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr3_17)
+exp(crr3_17$coef)
+beta<- crr3_17$coef
+se <- sqrt(diag(crr3_17$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr3_17)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+#data4를 활용하여 gray fine model 정리#
+data4$grouptype <- relevel(data4$grouptype,ref="001")
+data4$AGE <- as.numeric(data4$AGE)
+data4$SEX <- relevel(data4$SEX,ref="2")
+data4$q_smk_yn2 <- relevel(data4$q_smk_yn2,ref="Ex-smoker")
+data4$pack_year <- as.numeric(data4$pack_year)
+data4$G1E_BMI <- as.numeric(data4$G1E_BMI)
+data4$income <- relevel(data4$income,ref="1")
+data4$cci_group <- relevel(data4$cci_group,ref="0")
+data4$activity <- relevel(data4$activity, ref="inactive")
+data4$non_small_yn <- relevel(data4$non_small_yn,ref="0")
+data4$SEER_GRP <- relevel(data4$SEER_GRP,ref="1")
+data4$surgery_yn <- relevel(data4$surgery_yn,ref="no")
+data4$radio_yn <- relevel(data4$radio_yn, ref="no")
+data4$system_yn <- relevel(data4$system_yn, ref="no")
+
+
+
+data4[data4$death_yn==0,"dth_type"] = 0
+data4[data4$lung_cancer_yn==1,"dth_type"] = 1
+data4[data4$sain1new ==2 & !is.na(data4$sain1new),"dth_type"] = 2
+data4[data4$sain1new ==3 & !is.na(data4$sain1new),"dth_type"] = 3
+data4[data4$sain1new ==5 & !is.na(data4$sain1new),"dth_type"] = 4
+data4[data4$sain1new ==6 & !is.na(data4$sain1new),"dth_type"] = 5
+data4[data4$sain1new ==7 & !is.na(data4$sain1new),"dth_type"] = 6
+data4[data4$sain1new ==9 & !is.na(data4$sain1new),"dth_type"] = 7
+data4[data4$sain1new =="Other" & !is.na(data4$sain1new),"dth_type"] = 8
+table(data4$dth_type)
+data4[is.na(data4$dth_type ==TRUE),"dth_type"] = 2
+sum(is.na(data4$dth_type))
+
+
+View(m1)
+library(cmprsk)
+
+
+table(data3$smk_20)
+
+
+
+
+m1<-model.matrix(~grouptype+SEX+q_smk_yn2+pack_year+G1E_BMI+income
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data4)[,-1] 
+crr4_1 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_1)
+exp(crr4_1$coef)
+beta<- crr4_1$coef
+se <- sqrt(diag(crr4_1$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_1)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+surv_all <- Surv(data4$day_diff,data4$death_yn==1)
+data4$lung_cancer_yn <- ifelse(is.na(data4$sain1new),0,ifelse(data4$sain1new==1,1,0))
+table(data4$lung_cancer_yn)
+surv_lungcancer <- Surv(data4$day_diff,data4$lung_cancer_yn ==1)
+
+data4$grouptype <- relevel(data4$grouptype,ref="001")
+surv_fit1 <- survfit(surv_all ~grouptype, data=data4)
+surv_fit2 <- survfit(surv_lungcancer ~grouptype, data=data4)
+
+
+newdata <- m1[1:2,]
+newdata[,"grouptype002"] <- c(0,1)
+newdata[,"SEX1"] <- c(0,0)
+newdata[,"q_smk_yn2Current smoker"] <- c(0,0)
+newdata[,"pack_year"]<- c(mean(data4$pack_year),mean(data4$pack_year))
+newdata[,"G1E_BMI"] <- c(mean(data4$G1E_BMI),mean(data4$G1E_BMI))
+newdata[,"income2"] <- c(0,0)
+newdata[,"income3"] <- c(0,0)
+newdata[,"income4"] <- c(0,0)
+newdata[,"income5"] <- c(0,0)
+newdata[,"cci_group>=5"] <- c(0,0)
+newdata[,"cci_group3-4"] <- c(0,0)
+newdata[,"cci_group1-2"] <- c(0,0)
+newdata[,"activityactive"] <- c(0,0)
+newdata[,"non_small_yn1"] <- c(0,0)
+newdata[,"SEER_GRP2"] <- c(0,0)
+newdata[,"SEER_GRP7"] <- c(0,0)
+newdata[,"SEER_GRP9"] <- c(0,0)
+newdata[,"surgery_ynyes"] <- c(0,0)
+newdata[,"radio_ynyes"] <- c(0,0)
+newdata[,"system_ynyes"] <- c(0,0)
+
+
+newdata
+
+
+pred4_1_1<-predict(crr4_1,cov1=newdata)
+View(pred4_1_1)
+pred4 <- data.frame(time=pred4_1_1[,1], group1 = pred4_1_1[,2],group2 = pred4_1_1[,3])
+
+
+rownames(newdata) <- c(1,2)
+newdata
+pred4_1_2<-predict(crr4_1,cov1=newdata)
+View(pred4_1_2)
+pred4_2 <- data.frame(time=pred4_1_2[,1], group1 = pred4_1_2[,2],group2 = pred4_1_2[,3])
+
+png(filename = "finegray(cif)4.png",width=2200,height= 1400,res=100)
+
+p3<-ggplot(pred4, aes(x=time)) +
+  geom_line(aes(y= group1, color="Aged 50-80, <20PY smoking history")) +
+  geom_line(aes(y= group2, color="Aged 40-49, <20PY smoking history")) +
+  scale_color_manual(values = c("Aged 50-80, <20PY smoking history" = "darkblue", "Aged 40-49, <20PY smoking history" = "darkred"),breaks = c("Aged 50-80, <20PY smoking history", "Aged 40-49, <20PY smoking history"))+
+  scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  labs(x = "Time since diagnosis (years)", y = "Cumulative event (probability)", color= "")+
+  theme_classic() +
+  theme(legend.position = "top",axis.title.x=element_text(size=20),,axis.title.y=element_text(size=20,hjust=0.5),,legend.text=element_text(size=15),axis.text.x=element_text(size=20,color="black"),axis.text.y=element_text(size=20,color="black"),plot.margin=margin(5,70,5,320)
+  )
+
+
+
+
+p<- ggsurvplot(surv_fit2,legend.title="",palette = c("darkblue","darkred"),break.time.by=365, censor= FALSE, risk.table=TRUE, risk.table.y.text.col= FALSE, conf.int=TRUE,xlab= "Time since diagnosis (Years)",legend.labs=c("Aged 50-80, <20PY smoking history","Aged 40-49, <20PY smoking history"))
+p1 <- p$plot + scale_x_continuous(labels= c(0,1,2,3,4,5,6,7,8),breaks=c(0,365,730,1095,1460,1825,2190,2555,2920)) + theme(axis.title.x=element_text(size=20),plot.margin=margin(5,70,5,290),axis.title.y=element_text(size=20,hjust=0.5),legend.text=element_text(size=15),axis.text.x=element_text(size=20),axis.text.y=element_text(size=20))
+p2<- p$table + theme(axis.text.y=element_text(size=15),plot.margin=margin(5,70,5,290),plot.title=element_text(size=20),axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.title.x=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line.x=element_blank(),axis.line.y=element_blank(),axis.ticks.y=element_blank())
+
+
+
+risk_df <- p2$data[,c(1,2,3)]
+risk_df$strata <- factor(risk_df$strata,levels=c("Aged 40-49, <20PY smoking history","Aged 50-80, <20PY smoking history"))
+p4<-ggplot(risk_df, aes(x=time, y = strata, label=n.risk))+
+  geom_text(size=5) + scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  theme_classic() +theme(legend.text=element_text(size=15),axis.text.y=element_text(size=20,color="black"),plot.title = element_text(size=20),axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),axis.text.x=element_blank(),axis.line= element_blank(),plot.margin=margin(5,70,5,320))+
+  labs(title ="Number at Risk",x=NULL, y=NULL)
+
+
+
+g1 <- ggplotGrob(p3)
+g2 <- ggplotGrob(p4)
+
+g2$widths <- g1$widths
+
+g <- arrangeGrob(g1,g2,ncol=1, heights=c(3,1))
+g <- arrangeGrob(g1)
+grid.newpage()
+grid.draw(g)
+
+dev.off()
+
+#네 번째 시각화 그래프#
+ggsave(filename="finegray(cif)4-1(risk).png",width=18,height=10,plot=g,dpi=300)
+
+
+
+
+
+data4$grouptype <- relevel(data4$grouptype, ref="002")
+data4$non_small_yn <- relevel(data4$non_small_yn,ref="1")
+m1<-model.matrix(~grouptype+SEX+q_smk_yn2+pack_year+G1E_BMI
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data4)[,-1] 
+View(m1)
+crr4_2 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_2)
+exp(crr4_2$coef)
+beta<- crr4_2$coef
+se <- sqrt(diag(crr4_2$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_2)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+surv_all <- Surv(data4$day_diff,data4$death_yn==1)
+data4$lung_cancer_yn <- ifelse(is.na(data4$sain1new),0,ifelse(data4$sain1new==1,1,0))
+table(data4$lung_cancer_yn)
+surv_lungcancer <- Surv(data4$day_diff,data4$lung_cancer_yn ==1)
+
+
+
+
+
+
+data4$grouptype <- relevel(data4$grouptype, ref="001")
+m1<-model.matrix(~grouptype,data=data4)[,-1]
+crr4_3 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_3)
+exp(crr4_3$coef)
+beta<- crr4_3$coef
+se <- sqrt(diag(crr4_3$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_3)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+View(m1)
+
+data4$grouptype <- relevel(data4$grouptype, ref="002")
+m1<-model.matrix(~grouptype,data=data4)[,-1]
+crr4_4 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_4)
+exp(crr4_4$coef)
+beta<- crr4_4$coef
+se <- sqrt(diag(crr4_4$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_4)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+View(m1)
+
+m1<-model.matrix(~AGE,data=data4)[,-1]
+crr4_5 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_5)
+exp(crr4_5$coef)
+beta<- crr4_5$coef
+se <- sqrt(diag(crr4_5$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_5)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+
+m1<-model.matrix(~SEX,data=data4)[,-1]
+crr4_6 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_6)
+exp(crr4_6$coef)
+beta<- crr4_6$coef
+se <- sqrt(diag(crr4_6$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_6)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~q_smk_yn2,data=data4)[,-1]
+crr4_7 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_7)
+exp(crr4_7$coef)
+beta<- crr4_7$coef
+se <- sqrt(diag(crr4_7$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_7)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~pack_year,data=data4)[,-1]
+crr4_8 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_8)
+exp(crr4_8$coef)
+beta<- crr4_8$coef
+se <- sqrt(diag(crr4_8$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_8)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~G1E_BMI,data=data4)[,-1]
+crr4_9 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_9)
+exp(crr4_9$coef)
+beta<- crr4_9$coef
+se <- sqrt(diag(crr4_9$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_9)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~income,data=data4)[,-1]
+crr4_9 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_9)
+exp(crr4_9$coef)
+beta<- crr4_9$coef
+se <- sqrt(diag(crr4_9$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_9)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~cci_group,data=data4)[,-1]
+crr4_10 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_10)
+exp(crr4_10$coef)
+beta<- crr4_10$coef
+se <- sqrt(diag(crr4_10$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_10)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~activity,data=data4)[,-1]
+crr4_11 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_11)
+exp(crr4_11$coef)
+beta<- crr4_11$coef
+se <- sqrt(diag(crr4_11$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_11)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data4$non_small_yn <- relevel(data4$non_small_yn,ref="0")
+m1<-model.matrix(~non_small_yn,data=data4)[,-1]
+crr4_12 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_12)
+exp(crr4_12$coef)
+beta<- crr4_12$coef
+se <- sqrt(diag(crr4_12$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_12)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data4$non_small_yn <- relevel(data4$non_small_yn,ref="1")
+m1<-model.matrix(~non_small_yn,data=data4)[,-1]
+crr4_13 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_13)
+exp(crr4_13$coef)
+beta<- crr4_13$coef
+se <- sqrt(diag(crr4_13$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_13)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~SEER_GRP,data=data4)[,-1]
+crr4_14 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_14)
+exp(crr4_14$coef)
+beta<- crr4_14$coef
+se <- sqrt(diag(crr4_14$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_14)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~surgery_yn,data=data4)[,-1]
+crr4_15 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_15)
+exp(crr4_15$coef)
+beta<- crr4_15$coef
+se <- sqrt(diag(crr4_15$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_15)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~radio_yn,data=data4)[,-1]
+crr4_16 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_16)
+exp(crr4_16$coef)
+beta<- crr4_16$coef
+se <- sqrt(diag(crr4_16$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_16)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~system_yn,data=data4)[,-1]
+crr4_17 <- crr(ftime=data4$day_diff,fstatus=data4$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_17)
+exp(crr4_17$coef)
+beta<- crr4_17$coef
+se <- sqrt(diag(crr4_17$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_17)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data5$grouptype <- factor(data5$grouptype)
+
+#data5에 대한 grayfine model 정리#
+data5$grouptype <- relevel(data5$grouptype,ref="001")
+data5$AGE <- as.numeric(data5$AGE)
+data5$SEX <- relevel(data5$SEX,ref="2")
+
+data5$G1E_BMI <- as.numeric(data5$G1E_BMI)
+data5$income <- relevel(data5$income,ref="1")
+data5$cci_group <- relevel(data5$cci_group,ref="0")
+data5$activity <- relevel(data5$activity, ref="inactive")
+data5$non_small_yn <- relevel(data5$non_small_yn,ref="0")
+data5$SEER_GRP <- relevel(data5$SEER_GRP,ref="1")
+data5$surgery_yn <- relevel(data5$surgery_yn,ref="no")
+data5$radio_yn <- relevel(data5$radio_yn, ref="no")
+data5$system_yn <- relevel(data5$system_yn, ref="no")
+
+data5[data5$death_yn==0,"dth_type"] = 0
+data5[data5$lung_cancer_yn==1,"dth_type"] = 1
+data5[data5$sain1new ==2 & !is.na(data5$sain1new),"dth_type"] = 2
+data5[data5$sain1new ==3 & !is.na(data5$sain1new),"dth_type"] = 3
+data5[data5$sain1new ==5 & !is.na(data5$sain1new),"dth_type"] = 4
+data5[data5$sain1new ==6 & !is.na(data5$sain1new),"dth_type"] = 5
+data5[data5$sain1new ==7 & !is.na(data5$sain1new),"dth_type"] = 6
+data5[data5$sain1new ==9 & !is.na(data5$sain1new),"dth_type"] = 7
+data5[data5$sain1new =="Other" & !is.na(data5$sain1new),"dth_type"] = 8
+table(data5$dth_type)
+data5[is.na(data5$dth_type ==TRUE),"dth_type"] = 2
+sum(is.na(data5$dth_type))
+
+
+surv_all <- Surv(data5$day_diff,data5$death_yn==1)
+data5$lung_cancer_yn <- ifelse(is.na(data5$sain1new),0,ifelse(data5$sain1new==1,1,0))
+table(data5$lung_cancer_yn)
+surv_lungcancer <- Surv(data5$day_diff,data5$lung_cancer_yn ==1)
+
+data5$grouptype <- relevel(data5$grouptype,ref="001")
+surv_fit1 <- survfit(surv_all ~grouptype, data=data5)
+surv_fit2 <- survfit(surv_lungcancer ~grouptype, data=data5)
+
+
+m1<-model.matrix(~grouptype+SEX+G1E_BMI+income
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data5)[,-1] 
+crr5_1 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_1)
+exp(crr5_1$coef)
+beta<- crr5_1$coef
+se <- sqrt(diag(crr5_1$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_1)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+newdata <- m1[1:2,]
+newdata[,"grouptype002"] <- c(0,1)
+newdata[,"SEX1"] <- c(0,0)
+
+newdata[,"G1E_BMI"] <- c(mean(data5$G1E_BMI),mean(data5$G1E_BMI))
+newdata[,"income2"] <- c(0,0)
+newdata[,"income3"] <- c(0,0)
+newdata[,"income4"] <- c(0,0)
+newdata[,"income5"] <- c(0,0)
+newdata[,"cci_group>=5"] <- c(0,0)
+newdata[,"cci_group3-4"] <- c(0,0)
+newdata[,"cci_group1-2"] <- c(0,0)
+newdata[,"activityactive"] <- c(0,0)
+newdata[,"non_small_yn1"] <- c(0,0)
+newdata[,"SEER_GRP2"] <- c(0,0)
+newdata[,"SEER_GRP7"] <- c(0,0)
+newdata[,"SEER_GRP9"] <- c(0,0)
+newdata[,"surgery_ynyes"] <- c(0,0)
+newdata[,"radio_ynyes"] <- c(0,0)
+newdata[,"system_ynyes"] <- c(0,0)
+
+
+newdata
+
+pred5_1_1<-predict(crr5_1,cov1=newdata)
+View(pred5_1_1)
+pred5 <- data.frame(time=pred5_1_1[,1], group1 = pred5_1_1[,2],group2 = pred5_1_1[,3])
+
+
+rownames(newdata) <- c(1,2)
+newdata
+pred5_1_2<-predict(crr5_1,cov1=newdata)
+View(pred5_1_2)
+pred5_2 <- data.frame(time=pred5_1_2[,1], group1 = pred5_1_2[,2],group2 = pred5_1_2[,3])
+
+rownames(newdata) <- NULL
+newdata
+pred5_1_3<-predict(crr5_1,cov1=newdata)
+View(pred5_1_3)
+pred5_3 <- data.frame(time=pred5_1_3[,1], group1 = pred5_1_3[,2],group2 = pred5_1_3[,3])
+
+
+
+png(filename = "finegray(cif)5.png",width=2200,height= 1400,res=100)
+
+p3<-ggplot(pred5, aes(x=time)) +
+  geom_line(aes(y= group1, color="Aged 50-80, never smoked")) +
+  geom_line(aes(y= group2, color="Aged 40-49, never smoked")) +
+  scale_color_manual(values = c("Aged 50-80, never smoked" = "darkblue", "Aged 40-49, never smoked" = "darkred"),breaks = c("Aged 50-80, never smoked", "Aged 40-49, never smoked"))+
+  scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  labs(x = "Time since diagnosis (years)", y = "Cumulative event (probability)", color= "")+
+  theme_classic() +
+  theme(legend.position = "top",axis.title.x=element_text(size=20),,axis.title.y=element_text(size=20,hjust=0.5),,legend.text=element_text(size=15),axis.text.x=element_text(size=20,color="black"),axis.text.y=element_text(size=20,color="black"),plot.margin=margin(5,70,5,320)
+  )
+
+
+
+p<- ggsurvplot(surv_fit2,legend.title="",palette = c("darkblue","darkred"),break.time.by=365, censor= FALSE, risk.table=TRUE, risk.table.y.text.col= FALSE, conf.int=TRUE,xlab= "Time since diagnosis (Years)",legend.labs=c("Aged 50-80, never smoked","Aged 40-49, never smoked"))
+p1 <- p$plot + scale_x_continuous(labels= c(0,1,2,3,4,5,6,7,8),breaks=c(0,365,730,1095,1460,1825,2190,2555,2920)) + theme(axis.title.x=element_text(size=20),plot.margin=margin(5,70,5,290),axis.title.y=element_text(size=20,hjust=0.5),legend.text=element_text(size=15),axis.text.x=element_text(size=20),axis.text.y=element_text(size=20))
+p2<- p$table + theme(axis.text.y=element_text(size=15),plot.margin=margin(5,70,5,290),plot.title=element_text(size=20),axis.text.x=element_blank(),axis.ticks.x=element_blank(),axis.title.x=element_blank(),panel.grid.major=element_blank(),panel.grid.minor=element_blank(),axis.line.x=element_blank(),axis.line.y=element_blank(),axis.ticks.y=element_blank())
+
+risk_df <- p2$data[,c(1,2,3)]
+risk_df$strata <- factor(risk_df$strata,levels=c("Aged 40-49, never smoked","Aged 50-80, never smoked"))
+p4<-ggplot(risk_df, aes(x=time, y = strata, label=n.risk))+
+  geom_text(size=5) + scale_x_continuous(limit=c(0,3218),breaks = seq(0,365*8,365),labels = 0:8) +
+  theme_classic() +theme(legend.text=element_text(size=15),axis.text.y=element_text(size=20,color="black"),plot.title = element_text(size=20),axis.ticks.x=element_blank(),axis.ticks.y=element_blank(),axis.text.x=element_blank(),axis.line= element_blank(),plot.margin=margin(5,70,5,320))+
+  labs(title ="Number at Risk",x=NULL, y=NULL)
+
+g1 <- ggplotGrob(p3)
+g2 <- ggplotGrob(p4)
+
+g2$widths <- g1$widths
+
+g <- arrangeGrob(g1,g2,ncol=1, heights=c(3,1))
+g <- arrangeGrob(g1)
+grid.newpage()
+grid.draw(g)
+
+dev.off()
+
+#네 번째 시각화 그래프#
+ggsave(filename="finegray(cif)5-1(risk).png",width=18,height=10,plot=g,dpi=300)
+
+
+
+
+data5$grouptype <- relevel(data5$grouptype, ref="002")
+data5$non_small_yn <- relevel(data5$non_small_yn,ref="1")
+m1<-model.matrix(~grouptype+SEX+G1E_BMI+income
+                 +cci_group+activity+non_small_yn+SEER_GRP+surgery_yn+radio_yn+system_yn,data=data5)[,-1] 
+View(m1)
+crr5_2 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_2)
+exp(crr5_2$coef)
+beta<- crr5_2$coef
+se <- sqrt(diag(crr5_2$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_2)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data5$grouptype <- relevel(data5$grouptype, ref="001")
+m1<-model.matrix(~grouptype,data=data5)[,-1]
+crr5_3 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_3)
+exp(crr5_3$coef)
+beta<- crr5_3$coef
+se <- sqrt(diag(crr5_3$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_3)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+View(m1)
+
+data5$grouptype <- relevel(data5$grouptype, ref="002")
+m1<-model.matrix(~grouptype,data=data5)[,-1]
+crr5_4 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_4)
+exp(crr5_4$coef)
+beta<- crr5_4$coef
+se <- sqrt(diag(crr5_4$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_4)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+View(m1)
+
+m1<-model.matrix(~AGE,data=data5)[,-1]
+crr5_5 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_5)
+exp(crr5_5$coef)
+beta<- crr5_5$coef
+se <- sqrt(diag(crr5_5$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_5)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+
+m1<-model.matrix(~SEX,data=data5)[,-1]
+crr5_6 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_6)
+exp(crr5_6$coef)
+beta<- crr5_6$coef
+se <- sqrt(diag(crr5_6$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_6)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~q_smk_yn2,data=data5)[,-1]
+crr5_7 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_7)
+exp(crr5_7$coef)
+beta<- crr5_7$coef
+se <- sqrt(diag(crr5_7$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_7)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+
+m1<-model.matrix(~pack_year,data=data5)[,-1]
+crr4_8 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_8)
+exp(crr4_8$coef)
+beta<- crr4_8$coef
+se <- sqrt(diag(crr4_8$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_8)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~G1E_BMI,data=data5)[,-1]
+crr5_9 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_9)
+exp(crr5_9$coef)
+beta<- crr5_9$coef
+se <- sqrt(diag(crr5_9$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_9)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~income,data=data5)[,-1]
+crr5_9 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_9)
+exp(crr5_9$coef)
+beta<- crr5_9$coef
+se <- sqrt(diag(crr5_9$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_9)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~cci_group,data=data5)[,-1]
+crr5_10 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_10)
+exp(crr5_10$coef)
+beta<- crr5_10$coef
+se <- sqrt(diag(crr5_10$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_10)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+
+m1<-model.matrix(~activity,data=data5)[,-1]
+crr5_11 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_11)
+exp(crr5_11$coef)
+beta<- crr5_11$coef
+se <- sqrt(diag(crr5_11$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_11)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data5$non_small_yn <- relevel(data5$non_small_yn,ref="0")
+m1<-model.matrix(~non_small_yn,data=data5)[,-1]
+crr5_12 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_12)
+exp(crr5_12$coef)
+beta<- crr5_12$coef
+se <- sqrt(diag(crr5_12$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_12)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+data5$non_small_yn <- relevel(data5$non_small_yn,ref="1")
+m1<-model.matrix(~non_small_yn,data=data5)[,-1]
+crr5_13 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_13)
+exp(crr5_13$coef)
+beta<- crr5_13$coef
+se <- sqrt(diag(crr5_13$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_13)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~SEER_GRP,data=data5)[,-1]
+crr5_14 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_14)
+exp(crr5_14$coef)
+beta<- crr5_14$coef
+se <- sqrt(diag(crr5_14$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_14)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~surgery_yn,data=data5)[,-1]
+crr5_15 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_15)
+exp(crr5_15$coef)
+beta<- crr5_15$coef
+se <- sqrt(diag(crr5_15$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_15)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~radio_yn,data=data5)[,-1]
+crr4_16 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr4_16)
+exp(crr4_16$coef)
+beta<- crr4_16$coef
+se <- sqrt(diag(crr4_16$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr4_16)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+m1<-model.matrix(~system_yn,data=data5)[,-1]
+crr5_17 <- crr(ftime=data5$day_diff,fstatus=data5$dth_type, cencode=0, cov1=m1, failcode=1)
+summary(crr5_17)
+exp(crr5_17$coef)
+beta<- crr5_17$coef
+se <- sqrt(diag(crr5_17$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
+s<- summary(crr5_17)
+zval <- s$coef[,"z"]
+pval <- 2*(1-pnorm(abs(zval)))
+cbind(s$coef,pval)
+
+beta<- crr1$coef
+se <- sqrt(diag(crr1$var))
+hr <- exp(beta)
+lower <- exp(beta - 1.96*se)
+upper <- exp(beta + 1.96*se)
+result <- data.frame(HR = hr, lower95=lower, upper95=upper)
+result
