@@ -4,7 +4,7 @@
 - Screening Eligibility and Survival among Patients with Lung Cancer: A Korean Nationwide Cohort Study
  
 # 배경
-- 흡연 유형에 따른 전체/폐암 사망 위험도를 분석하고 전체/폐암에 영향을 끼치는 개인 특성 요인이 무엇인지 분석하는 것을 목적으로 한다.
+- 흡연 유형에 따른 전체/폐암사망 위험도를 분석하고 전체/폐암에 영향을 끼치는 요인(grouptype, 개인 특성 요인)이 무엇인지 분석하는 것을 목적으로 한다.
  
 # 주최
 - 분당서울대병원 빅데이터센터
